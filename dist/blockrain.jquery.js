@@ -1,4 +1,4 @@
-a((function ( $ ) {
+((function ( $ ) {
 
   "use strict";
 
