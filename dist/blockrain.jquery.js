@@ -10,6 +10,7 @@
       showFieldOnStart: true, // Show a bunch of random blocks on the start screen (it looks nice)
       theme: null, // The theme name or a theme object
       blockWidth: 10, // How many blocks wide the field is (The standard is 10 blocks)
+      blockHeight: 24,
       autoBlockWidth: false, // The blockWidth is dinamically calculated based on the autoBlockSize. Disabled blockWidth. Useful for responsive backgrounds
       autoBlockSize: 24, // The max size of a block for autowidth mode
       difficulty: 'normal', // Difficulty (normal|nice|evil).
@@ -178,7 +179,7 @@
       this._PIXEL_HEIGHT = this.element.innerHeight();
 
       this._BLOCK_WIDTH = this.options.blockWidth;
-      this._BLOCK_HEIGHT = Math.floor(this.element.innerHeight() / this.element.innerWidth() * this._BLOCK_WIDTH);
+      this._BLOCK_HEIGHT = this.options.blockHeight || 24;
 
       this._block_size = Math.floor(this._PIXEL_WIDTH / this._BLOCK_WIDTH);
       this._border_width = 2;
@@ -1014,12 +1015,8 @@
         },
 
         renderHold: function() {
-          if (!this.hold) { return; }
-
-          var shape = this.hold;
-          var blocks = shape.getBlocks(0); // orientation 0 preview
           var size = game._block_size;
-          var padding = 2 * size;   // distance from canvas edge
+          var padding = 0;   // distance from canvas edge
           var boxBlocks = 4;        // 4x4 box
           var boxSize = boxBlocks * size;
 
@@ -1027,12 +1024,22 @@
           var boxX = padding;
           var boxY = padding;
 
-          // Draw box border
+          // Clear background inside hold area (no dots)
           game._ctx.save();
+          game._ctx.fillStyle = '#000000';  // or any solid background color
+          game._ctx.fillRect(boxX, boxY, boxSize, boxSize);
+
+          // Box border
           game._ctx.strokeStyle = '#ffffff';
           game._ctx.lineWidth = 2;
           game._ctx.strokeRect(boxX, boxY, boxSize, boxSize);
           game._ctx.restore();
+
+          // If no held piece yet, just show empty box
+          if (!this.hold) { return; }
+
+          var shape = this.hold;
+          var blocks = shape.getBlocks(0); // orientation 0 preview
 
           // Compute bounds of the shape in its base orientation
           var bounds = shape.getBounds(blocks);
@@ -1048,8 +1055,7 @@
             var px = offsetX + bx * size;
             var py = offsetY + by * size;
 
-            // convert back to grid units for drawBlock
-            game._board.drawBlock(
+            this.drawBlock(
               px / size,
               py / size,
               shape.blockType,
@@ -1060,7 +1066,6 @@
             );
           }
         },
-
         /**
          * Draws one block (Each piece is made of 4 blocks)
          * The blockType is used to draw any block. 
