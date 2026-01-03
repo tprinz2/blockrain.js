@@ -1724,7 +1724,17 @@
       const result = await response.json();
 
       if (!response.ok) {
-        alert(result.error || "Error submitting score");
+        if (response.status === 403) {
+          const retry = confirm(result.error + "\n\nWould you like to try a different name?");
+          if (retry) {
+            const newName = prompt("Enter your name (must match RSVP list):", playerName);
+            if (newName && newName.trim()) {
+              return submitScore(newName.trim(), scoreValue);  // Recursive retry
+            }
+          }
+        } else {
+          alert(result.error || "Error submitting score");
+        }
         return;
       }
 
