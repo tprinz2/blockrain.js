@@ -53,53 +53,13 @@
       this.showGameOverMessage();
       this._board.gameover = true;
       this.options.onGameOver.call(this.element, this._filled.score);
-      // This is the javascript in your Squarespace page for blockrain.js
-
-      async function submitScore(playerName, scoreValue) {
-        // ❗️ Replace this with the Function URL you copied from AWS Lambda
-        const LAMBDA_PROXY_URL = "https://tehoesh2ofabsx33fclbp7culy0fyigt.lambda-url.us-east-2.on.aws/";
-
-        const scoreData = {
-          player: playerName,
-          score: this._filled.score
-        };
-
-        try {
-          const response = await fetch(LAMBDA_PROXY_URL, {
-            method: "POST",
-            // Notice: No 'Authorization' header here! It's handled securely in the Lambda.
-            headers: {
-              "Content-Type": "application/json"
-            },
-            body: JSON.stringify(scoreData)
-          });
-
-          const result = await response.json();
-
-        if (!response.ok) {
-            // This will catch errors sent back from your Lambda function
-            alert(`Error submitting score: ${result.error}`);
-            return;
-        }
-        
-        console.log('Success:', result);
-        alert('Your score has been submitted!');
-
-      } catch (error) {
-        console.error('Network error or failed to fetch:', error);
-        alert('Could not submit score. Please check your connection.');
+      // NEW: Prompt for name and submit score
+      const game = this;
+      const playerName = prompt("Game Over! Enter your name for the leaderboard:", "");
+      
+      if (playerName && playerName.trim()) {
+        submitScore(playerName.trim(), this._filled.score);
       }
-    }
-
-// You would call this function when the game is over.
-// For example, from within blockrain.js's onGameOver event:
-// onGameOver: function(score) {
-//   const playerName = prompt("Game Over! Enter your name:", "Player");
-//   if (playerName) {
-//     submitScore(playerName, score);
-//   }
-// }
-
     },
 
     _doStart: function() {
@@ -1744,6 +1704,75 @@
 
     }
 
+  });
+
+  // Leaderboard functions
+  const LAMBDA_URL = "https://tehoesh2ofabsx33fclbp7culy0fyigt.lambda-url.us-east-2.on.aws/";
+
+  async function submitScore(playerName, scoreValue) {
+    try {
+      const response = await fetch(LAMBDA_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "submit",
+          guestName: playerName,
+          score: scoreValue
+        })
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        alert(result.error || "Error submitting score");
+        return;
+      }
+
+      alert("Score submitted! Check the leaderboard.");
+      loadLeaderboard(); // refresh leaderboard display
+
+    } catch (error) {
+      console.error("Error:", error);
+      alert("Could not submit score. Please check your connection.");
+    }
+  }
+
+  async function loadLeaderboard() {
+    try {
+      const response = await fetch(LAMBDA_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "leaderboard" })
+      });
+
+      const result = await response.json();
+      displayLeaderboard(result.leaderboard);
+
+    } catch (error) {
+      console.error("Error loading leaderboard:", error);
+    }
+  }
+
+  function displayLeaderboard(entries) {
+    let html = '<div class="blockrain-leaderboard"><h3>Top Scores</h3><ol>';
+    
+    entries.forEach(entry => {
+      html += `<li><span class="lb-name">${entry.name}</span> <span class="lb-score">${entry.score}</span></li>`;
+    });
+    
+    html += '</ol></div>';
+    
+    // Insert into right sidebar (after hold box)
+    const $sidebar = $('.blockrain-right');
+    $sidebar.find('.blockrain-leaderboard').remove(); // clear old
+    $sidebar.append(html);
+  }
+
+  // Load leaderboard on page load
+  $(document).ready(function() {
+    loadLeaderboard();
+    // Refresh every 30 seconds
+    setInterval(loadLeaderboard, 30000);
   });
 
 })(jQuery));
