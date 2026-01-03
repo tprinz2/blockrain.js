@@ -7,6 +7,25 @@
   line-height: 140%;
 }
 
+/* NEW: main layout – canvas + sidebar */
+.blockrain-game {
+  display: flex;
+  align-items: flex-start;
+}
+
+/* NEW: left side holds the main canvas */
+.blockrain-left {
+  position: relative;
+}
+
+/* NEW: right side column for score + hold */
+.blockrain-right {
+  margin-left: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
 /* Touch Controls */
 .blockrain-touch {
   position: absolute;
@@ -120,12 +139,9 @@
   right: -8px;
 }
 
-
-/* Score */
+/* Score – move into sidebar, so remove absolute positioning */
 .blockrain-score-holder {
-  position: absolute;
-  top: 20px;
-  right: 20px;
+  /* no longer absolute; sidebar layout handles placement */
   text-align: right;
 }
 .blockrain-score-msg {
@@ -138,8 +154,26 @@
   font-weight: bold;
 }
 
+/* NEW: Hold block in sidebar */
+.blockrain-hold {
+  text-align: center;
+}
+
+.blockrain-hold-label {
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+
+/* NEW: hold preview canvas – blank background + border */
+.blockrain-hold-canvas {
+  display: block;
+  background: #000;        /* blank background */
+  border: 2px solid #fff;  /* box around hold piece */
+}
+
 /* Menu */
-.blockrain-start-holder, .blockrain-game-over-holder {
+.blockrain-start-holder,
+.blockrain-game-over-holder {
   position: absolute;
   top: 0;
   left: 0;
@@ -149,15 +183,16 @@
   background: rgba(0,0,0,0.8);
   text-align: center;
 }
-.blockrain-start, .blockrain-game-over {
+.blockrain-start,
+.blockrain-game-over {
   position: absolute;
   top: 50%;
   width: 100%;
   transform: translateY(-50%);
 }
 
-.blockrain-start-msg, .blockrain-game-over-msg {
+.blockrain-start-msg,
+.blockrain-game-over-msg {
   font-size: 18px;
   margin-bottom: 30px;
 }
-

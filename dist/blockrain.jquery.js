@@ -190,6 +190,12 @@
 
       this._$canvas .attr('width', this._PIXEL_WIDTH)
                     .attr('height', this._PIXEL_HEIGHT);
+
+      if (this._$holdCanvas) {
+        this._$holdCanvas
+          .attr('width',  4 * this._block_size)
+          .attr('height', 4 * this._block_size);
+  }
     },
 
 
@@ -1015,57 +1021,49 @@
         },
 
         renderHold: function() {
+          if (!game._holdCtx || !game._holdCanvas) { return; }
+
+          var ctx = game._holdCtx;
           var size = game._block_size;
-          var padding = 0;   // distance from canvas edge
-          var boxBlocks = 4;        // 4x4 box
-          var boxSize = boxBlocks * size;
+          var boxBlocks = 4;
+          var boxSizeX = boxBlocks * size;
+          var boxSizeY = boxBlocks * size;
 
-          // Box top-left in pixels
-          var boxX = padding;
-          var boxY = padding;
+          // Clear hold canvas
+          ctx.save();
+          ctx.fillStyle = '#000000';
+          ctx.fillRect(0, 0, boxSizeX, boxSizeY);
+          ctx.restore();
 
-          // Clear background inside hold area (no dots)
-          game._ctx.save();
-          game._ctx.fillStyle = '#000000';  // or any solid background color
-          game._ctx.fillRect(boxX, boxY, boxSize, boxSize);
-
-          // Box border
-          game._ctx.strokeStyle = '#ffffff';
-          game._ctx.lineWidth = 2;
-          game._ctx.strokeRect(boxX, boxY, boxSize, boxSize);
-          game._ctx.restore();
-
-          // If no held piece yet, just show empty box
           if (!this.hold) { return; }
 
           var shape = this.hold;
-          var blocks = shape.getBlocks(0); // orientation 0 preview
-
-          // Compute bounds of the shape in its base orientation
+          var blocks = shape.getBlocks(0);
           var bounds = shape.getBounds(blocks);
 
-          // Center the shape within the box
-          var offsetX = boxX + (boxSize / 2) - ((bounds.left + bounds.right + 1) / 2) * size;
-          var offsetY = boxY + (boxSize / 2) - ((bounds.top + bounds.bottom + 1) / 2) * size;
+          var offsetX = (boxSizeX / 2) - ((bounds.left + bounds.right + 1) / 2) * size;
+          var offsetY = (boxSizeY / 2) - ((bounds.top + bounds.bottom + 1) / 2) * size;
 
-          // Draw held shape using existing block renderer
           for (var i = 0; i < blocks.length; i += 2) {
             var bx = blocks[i];
             var by = blocks[i + 1];
             var px = offsetX + bx * size;
             var py = offsetY + by * size;
 
-            this.drawBlock(
-              px / size,
-              py / size,
-              shape.blockType,
-              shape.blockVariation,
-              i / 2,
-              0,
-              false // not falling
-            );
+            var color = this.getBlockColor(shape.blockType, shape.blockVariation, i / 2, false);
+
+            ctx.save();
+            if (typeof color === 'string') {
+              ctx.fillStyle = color;
+              ctx.fillRect(px, py, size, size);
+              ctx.strokeStyle = '#222';
+              ctx.lineWidth = 1;
+              ctx.strokeRect(px + 0.5, py + 0.5, size - 1, size - 1);
+            }
+            ctx.restore();
           }
         },
+
         /**
          * Draws one block (Each piece is made of 4 blocks)
          * The blockType is used to draw any block. 
@@ -1319,71 +1317,55 @@
 
     },
 
-
     _createHolder: function() {
-
-      // Create the main holder (it holds all the ui elements, the original element is just the wrapper)
+      // Main holder
       this._$gameholder = $('<div class="blockrain-game-holder"></div>');
-      this._$gameholder.css('position', 'relative').css('width', '100%').css('height', '100%');
-
+      this._$gameholder
+        .css('position', 'relative')
+        .css('width', '100%')
+        .css('height', '100%');
       this.element.html('').append(this._$gameholder);
 
-      // Create the game canvas and context
-      this._$canvas = $('<canvas style="display:block; width:100%; height:100%; padding:0; margin:0; border:none;" />');
-      if( typeof this._theme.background === 'string' ) {
+      // NEW: left/right layout inside holder
+      this._$game = $('<div class="blockrain-game"></div>').appendTo(this._$gameholder);
+      this._$left = $('<div class="blockrain-left"></div>').appendTo(this._$game);
+      this._$right = $('<div class="blockrain-right"></div>').appendTo(this._$game);
+
+      // Canvas in the left column
+      this._$canvas = $('<canvas class="blockrain-canvas" style="display:block; width:100%; height:100%; padding:0; margin:0; border:none;"></canvas>');
+      if (typeof this._theme.background === 'string') {
         this._$canvas.css('background-color', this._theme.background);
       }
-      this._$gameholder.append(this._$canvas);
-
+      this._$left.append(this._$canvas);
       this._canvas = this._$canvas.get(0);
       this._ctx = this._canvas.getContext('2d');
-
     },
-
 
     _createUI: function() {
 
       var game = this;
 
-      // Score
+      // Score in sidebar
       game._$score = $(
-        '<div class="blockrain-score-holder" style="position:absolute;">'+
-          '<div class="blockrain-score">'+
-            '<div class="blockrain-score-msg">'+ this.options.scoreText +'</div>'+
-            '<div class="blockrain-score-num">0</div>'+
-          '</div>'+
-        '</div>').hide();
+        '<div class="blockrain-score-holder">' +
+          '<div class="blockrain-score-msg">' + this.options.scoreText + '</div>' +
+          '<div class="blockrain-score-num">0</div>' +
+        '</div>'
+      ).appendTo(this._$right);   // NOTE: sidebar, not gameholder
       game._$scoreText = game._$score.find('.blockrain-score-num');
-      game._$gameholder.append(game._$score);
 
-      // Create the start menu
-      game._$start = $(
-        '<div class="blockrain-start-holder" style="position:absolute;">'+
-          '<div class="blockrain-start">'+
-            '<div class="blockrain-start-msg">'+ this.options.playText +'</div>'+
-            '<a class="blockrain-btn blockrain-start-btn">'+ this.options.playButtonText +'</a>'+
-          '</div>'+
-        '</div>').hide();
-      game._$gameholder.append(game._$start);
+      // Hold in sidebar
+      game._$hold = $('<div class="blockrain-hold"></div>').appendTo(this._$right);
+      $('<div class="blockrain-hold-label">Hold</div>').appendTo(game._$hold);
+      game._$holdCanvas = $('<canvas class="blockrain-hold-canvas"></canvas>').appendTo(game._$hold);
+      game._holdCanvas = game._$holdCanvas[0];
+      game._holdCtx = game._holdCanvas.getContext('2d');
 
-      game._$start.find('.blockrain-start-btn').click(function(event){
-        event.preventDefault();
-        game.start();
-      });
+      // Start / game-over overlays stay over the left board
+      game._$start = $('<div class="blockrain-start-holder"><div class="blockrain-start"><div class="blockrain-start-msg">'+ this.options.playText +'</div><a href="#" class="blockrain-btn blockrain-start-btn">'+ this.options.playButtonText +'</a></div></div>').hide();
+      game._$gameover = $('<div class="blockrain-game-over-holder"><div class="blockrain-game-over"><div class="blockrain-game-over-msg">'+ this.options.gameOverText +'</div><a href="#" class="blockrain-btn blockrain-game-over-btn">'+ this.options.restartButtonText +'</a></div></div>').hide();
 
-      // Create the game over menu
-      game._$gameover = $(
-        '<div class="blockrain-game-over-holder" style="position:absolute;">'+
-          '<div class="blockrain-game-over">'+
-            '<div class="blockrain-game-over-msg">'+ this.options.gameOverText +'</div>'+
-            '<a class="blockrain-btn blockrain-game-over-btn">'+ this.options.restartButtonText +'</a>'+
-          '</div>'+
-        '</div>').hide();
-      game._$gameover.find('.blockrain-game-over-btn').click(function(event){
-        event.preventDefault();
-        game.restart();
-      });
-      game._$gameholder.append(game._$gameover);
+      this._$left.append(game._$start).append(game._$gameover);
 
       this._createControls();
     },
