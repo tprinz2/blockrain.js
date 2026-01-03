@@ -105,6 +105,8 @@
       this._filled.clearAll();
       this._filled._resetScore();
       this._board.cur = this._board.nextShape();
+      this._board.hold = null;
+      this._board.hasHeldThisDrop = false;
       this._board.started = true;
       this._board.gameover = false;
       this._board.dropDelay = 5;
@@ -753,6 +755,9 @@
         animateTimeoutId: null,
         cur: null,
 
+        hold: null,           // the held shape instance
+        hasHeldThisDrop: false, // prevent multiple holds until piece locks
+
         lines: 0,
 
         // DropCount increments on each animation frame. After n frames, the piece drops 1 square
@@ -767,10 +772,32 @@
         gameover: false,
 
         renderChanged: true,
+        holdPiece: function() {
+          if (!this.cur || this.hasHeldThisDrop) { return; }
 
+          var curShape = this.cur;
+          var nextShape;
+
+          if (this.hold === null) {
+            // First time holding: move current to hold, get a new shape
+            this.hold = curShape;
+            nextShape = this.nextShape();
+          } else {
+            // Swap current with hold
+            nextShape = this.hold;
+            this.hold = curShape;
+          }
+
+          // Re-init the piece so it spawns at the top center
+          this.cur = nextShape.init();
+          this.dropCount = 0;
+          this.hasHeldThisDrop = true;
+          this.renderChanged = true;
+        },
         init: function() {
           this.cur = this.nextShape();
-
+          this.hold = null;              // NEW
+          this.hasHeldThisDrop = false;  // NEW
           if( game.options.showFieldOnStart ) {
             game._drawBackground();
             game._board.createRandomBoard();
@@ -890,6 +917,7 @@
                 }
                 game._filled.checkForClears();
                 this.cur = this.nextShape();
+                this.hasHeldThisDrop = false;
                 this.renderChanged = true;
 
                 // Stop holding drop (and any other buttons). Just in case the controls get sticky.
@@ -981,9 +1009,57 @@
             game._drawBackground();
             game._filled.draw();
             this.cur.draw();
+            this.renderHold();
           }
         },
 
+        renderHold: function() {
+          if (!this.hold) { return; }
+
+          var shape = this.hold;
+          var blocks = shape.getBlocks(0); // orientation 0 preview
+          var size = game._block_size;
+          var padding = 2 * size;   // distance from canvas edge
+          var boxBlocks = 4;        // 4x4 box
+          var boxSize = boxBlocks * size;
+
+          // Box top-left in pixels
+          var boxX = padding;
+          var boxY = padding;
+
+          // Draw box border
+          game._ctx.save();
+          game._ctx.strokeStyle = '#ffffff';
+          game._ctx.lineWidth = 2;
+          game._ctx.strokeRect(boxX, boxY, boxSize, boxSize);
+          game._ctx.restore();
+
+          // Compute bounds of the shape in its base orientation
+          var bounds = shape.getBounds(blocks);
+
+          // Center the shape within the box
+          var offsetX = boxX + (boxSize / 2) - ((bounds.left + bounds.right + 1) / 2) * size;
+          var offsetY = boxY + (boxSize / 2) - ((bounds.top + bounds.bottom + 1) / 2) * size;
+
+          // Draw held shape using existing block renderer
+          for (var i = 0; i < blocks.length; i += 2) {
+            var bx = blocks[i];
+            var by = blocks[i + 1];
+            var px = offsetX + bx * size;
+            var py = offsetY + by * size;
+
+            // convert back to grid units for drawBlock
+            game._board.drawBlock(
+              px / size,
+              py / size,
+              shape.blockType,
+              shape.blockVariation,
+              i / 2,
+              0,
+              false // not falling
+            );
+          }
+        },
 
         /**
          * Draws one block (Each piece is made of 4 blocks)
@@ -1532,6 +1608,7 @@
           case 88: /*x*/      game._board.cur.rotate('right'); break;
           case 90: /*z*/      game._board.cur.rotate('left'); break;
           case 32: /*space*/  hardDrop(); break;
+            case 16: /*shift*/  game._board.holdPiece(); break;
           default: caught = false;
         }
         if (caught) evt.preventDefault();
