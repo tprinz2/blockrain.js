@@ -1779,10 +1779,57 @@
   }
 
   // Load leaderboard on page load
+  let leaderboardInterval = null;
+
+  function startLeaderboardPolling() {
+    if (!leaderboardInterval) {
+      loadLeaderboard(); // Load immediately
+      leaderboardInterval = setInterval(loadLeaderboard, 60000);  // Every 60 seconds
+    }
+  }
+
+  function stopLeaderboardPolling() {
+    if (leaderboardInterval) {
+      clearInterval(leaderboardInterval);
+      leaderboardInterval = null;
+    }
+  }
+
   $(document).ready(function() {
-    loadLeaderboard();
-    // Refresh every 30 seconds
-    setInterval(loadLeaderboard, 30000);
+    // Initialize game
+    $('#tetris-game').blockrain({
+      autoplay: false,
+      blockWidth: 10,
+      blockHeight: 24
+    });
+    
+    // Start leaderboard polling
+    startLeaderboardPolling();
+    
+    // Stop polling when tab is hidden, resume when visible
+    document.addEventListener('visibilitychange', function() {
+      if (document.hidden) {
+        console.log('Tab hidden - pausing leaderboard updates');
+        stopLeaderboardPolling();
+      } else {
+        console.log('Tab visible - resuming leaderboard updates');
+        startLeaderboardPolling();
+      }
+    });
+    
+    // Optional: Auto-stop after 2 hours of inactivity
+    let inactivityTimer;
+    function resetInactivityTimer() {
+      clearTimeout(inactivityTimer);
+      inactivityTimer = setTimeout(function() {
+        console.log('Leaderboard paused after 2 hours of inactivity');
+        stopLeaderboardPolling();
+      }, 2 * 60 * 60 * 1000);  // 2 hours in milliseconds
+    }
+    
+    // Reset timer on user interaction
+    $(document).on('click keypress touchstart', resetInactivityTimer);
+    resetInactivityTimer();
   });
 
 })(jQuery));
