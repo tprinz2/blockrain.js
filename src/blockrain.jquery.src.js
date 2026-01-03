@@ -1367,6 +1367,17 @@
 
       this._$left.append(game._$start).append(game._$gameover);
 
+      // NEW: wire buttons to start/restart
+      game._$start.find('.blockrain-start-btn').click(function (event) {
+        event.preventDefault();
+        game.start();          // calls _doStart, hides start, shows score
+      });
+
+      game._$gameover.find('.blockrain-game-over-btn').click(function (event) {
+        event.preventDefault();
+        game.restart();        // same as start but from game over
+      });
+
       this._createControls();
     },
 

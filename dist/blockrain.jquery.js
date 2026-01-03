@@ -1,4 +1,4 @@
-((function ( $ ) {
+a((function ( $ ) {
 
   "use strict";
 
@@ -1366,6 +1366,17 @@
       game._$gameover = $('<div class="blockrain-game-over-holder"><div class="blockrain-game-over"><div class="blockrain-game-over-msg">'+ this.options.gameOverText +'</div><a href="#" class="blockrain-btn blockrain-game-over-btn">'+ this.options.restartButtonText +'</a></div></div>').hide();
 
       this._$left.append(game._$start).append(game._$gameover);
+
+      // NEW: wire buttons to start/restart
+      game._$start.find('.blockrain-start-btn').click(function (event) {
+        event.preventDefault();
+        game.start();          // calls _doStart, hides start, shows score
+      });
+
+      game._$gameover.find('.blockrain-game-over-btn').click(function (event) {
+        event.preventDefault();
+        game.restart();        // same as start but from game over
+      });
 
       this._createControls();
     },
